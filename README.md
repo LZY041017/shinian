@@ -2,6 +2,12 @@
 
 本地 Windows 记忆工作台：以一句引句为记忆入口，收录文字与图片，按标签和日期检索，通过随机抽查与透视镜辅助主动回忆。
 
+## 下载
+
+- [Windows x64 便携版（v1.0.0）](https://github.com/LZY041017/shinian/releases/download/v1.0.0/Shinian-1.0.0-Windows-x64.zip)
+
+下载后请解压整个文件夹，再运行其中的 `拾念.exe`。
+
 ## 本地运行
 
 需要 Node.js 22.12 或以上版本。以下为 PowerShell 命令，在本目录执行：
