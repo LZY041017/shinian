@@ -1,0 +1,93 @@
+const {_electron:electron}=require('playwright-core');
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const qa=path.resolve(root,'../../work/qa',process.env.SHINIAN_TEST_EXE?'packaged':'');
+fs.mkdirSync(qa,{recursive:true});
+const dataDir=path.join(qa,'profile-'+Date.now());
+const errors=[],checks=[];
+let app;
+async function launch(){
+  const env={...process.env,SHINIAN_DATA_DIR:dataDir};delete env.ELECTRON_RUN_AS_NODE;
+  app=await electron.launch({args:process.env.SHINIAN_TEST_EXE?[]:[root],...(process.env.SHINIAN_TEST_EXE?{executablePath:process.env.SHINIAN_TEST_EXE}:{}),env});
+  const page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));
+  await page.waitForSelector('.daily-quote');return page;
+}
+async function snap(page,name){await page.evaluate(()=>{document.getElementById('toast').classList.remove('visible');});await page.screenshot({path:path.join(qa,name),animations:'disabled'});}
+async function closeModal(page){await page.locator('#modal [data-close]').click();await page.waitForFunction(()=>!document.querySelector('#modal').open);}
+async function saveEditor(page){await page.locator('#save-entry').click();await page.waitForFunction(()=>!document.querySelector('#modal').open);}
+(async()=>{
+  let page=await launch();
+  assert.equal(await page.locator('.memory-card').count(),3);
+  const stored=()=>JSON.parse(fs.readFileSync(path.join(dataDir,'library/memories.json'),'utf8'));
+  assert.equal(stored().entries.length,6);assert.ok(stored().entries[0].images[0].data.startsWith('data:image/png'));
+  checks.push('首次启动写入六条示例及真实 PNG 图片');
+  await snap(page,'01-home.png');
+  await page.locator('[data-page="library"]').click();
+  await page.locator('#search').fill('内建');assert.equal(await page.locator('.memory-card').count(),1);
+  await page.locator('#search').fill('');
+  await page.locator('[data-filter-tag="0"]').click();assert.equal(await page.locator('.memory-card').count(),2);
+  await page.locator('[data-filter-tag="-1"]').click();
+  await page.locator('#date-from').fill('2099-01-01');assert.equal(await page.locator('.memory-card').count(),0);
+  await page.locator('#clear-date').click();assert.equal(await page.locator('.memory-card').count(),6);
+  await page.locator('#sort').selectOption('oldest');assert.equal(await page.locator('.memory-card').first().getAttribute('data-entry'),'seed-5');
+  checks.push('全文搜索、标签筛选、日期范围、日期清除与排序');
+  await page.locator('#sort').selectOption('newest');await snap(page,'02-library.png');
+  await page.locator('[data-entry="seed-0"]').click();
+  await page.locator('.lens-viewport img').first().waitFor();
+  let bounds=await page.locator('.lens-viewport').boundingBox();
+  await page.mouse.move(bounds.x+210,bounds.y+100);
+  assert.equal(await page.locator('.lens-stage').evaluate(e=>e.classList.contains('lens-active')),true);
+  assert.match(await page.locator('.clear-layer').evaluate(e=>getComputedStyle(e).clipPath),/^circle/);
+  await snap(page,'03-lens-text.png');
+  await page.locator('.lens-viewport').evaluate(e=>e.scrollTop=e.scrollHeight);
+  await page.mouse.move(bounds.x+320,bounds.y+185);
+  const alignment=await page.locator('.lens-stage').evaluate(e=>({y:parseFloat(e.style.getPropertyValue('--lens-y')),top:e.getBoundingClientRect().top}));
+  assert.ok(Math.abs(alignment.y+alignment.top-(bounds.y+185))<2);
+  await snap(page,'04-lens-image.png');
+  await page.locator('[data-mode="full"]').click();assert.equal(await page.locator('.lens-stage').evaluate(e=>e.classList.contains('masked')),false);
+  await closeModal(page);checks.push('文字和图片透视镜，滚动坐标跟随与完整阅读');
+  await page.locator('[data-action="new"]').click();
+  await page.locator('#hook').fill('测试引句：每一次回忆都留下痕迹');
+  await page.locator('#memory-text').fill('这是可持久化的原始文本。\n边界 <script>alert(1)</script> 应以纯文本显示。');
+  await page.locator('#new-tags').fill('测试标签');
+  await page.locator('#entry-date').fill('2026-08-01');
+  await page.locator('#image-input').setInputFiles(path.join(root,'ui/icon.png'));
+  await page.waitForSelector('.image-thumb');await snap(page,'05-editor.png');await saveEditor(page);
+  assert.equal(stored().entries.length,7);assert.equal(stored().entries[0].images.length,1);
+  checks.push('新增引句、文本、图片、自定义标签及历史收录日期');
+  await page.locator('#search').fill('测试引句');await page.locator('.memory-card').click();
+  await page.locator('[data-mode="full"]').click();assert.ok((await page.locator('.clear-layer').textContent()).includes('<script>alert(1)</script>'));
+  await page.locator('#edit-entry').click();await page.locator('#hook').fill('测试引句：修改已保存');await saveEditor(page);
+  assert.equal(stored().entries.find(e=>e.tags.includes('测试标签')).hook,'测试引句：修改已保存');
+  await page.locator('.star').click();await page.waitForSelector('.star.is-starred');assert.equal(stored().entries.find(e=>e.tags.includes('测试标签')).starred,true);
+  await page.locator('[data-action="tags"]').click();await page.locator('[data-tag-input="3"]').fill('回忆实验');await page.locator('[data-rename="3"]').click();await page.waitForSelector('[data-tag-input="3"][value="回忆实验"]');
+  assert.ok(stored().entries.some(e=>e.tags.includes('回忆实验')));await closeModal(page);
+  checks.push('编辑、珍藏、标签重命名联动与文本转义');
+  await page.locator('[data-page="practice"]').click();await snap(page,'06-practice-setup.png');
+  await page.locator('[data-count="3"]').click();await page.locator('#start-practice').click();
+  const seen=[];
+  for(let i=0;i<3;i++){
+    const hook=await page.locator('.recall-card h2').textContent();assert.ok(!seen.includes(hook));seen.push(hook);
+    await page.locator('#recall-draft').fill('主动回想草稿');await page.locator('#reveal-material').click();
+    assert.equal(await page.locator('#recall-draft').inputValue(),'主动回想草稿');
+    if(i===0)await snap(page,'07-practice-reveal.png');
+    await page.locator(`[data-rating="${i}"]`).click();
+    if(i<2)await page.waitForSelector('#reveal-material');else await page.waitForSelector('.session-summary');
+  }
+  assert.equal(stored().entries.flatMap(e=>e.reviews).length,3);await snap(page,'08-session-summary.png');
+  await page.locator('#back-home').click();await page.locator('[data-page="history"]').click();assert.equal(await page.locator('.history-row').count(),3);await snap(page,'09-history.png');
+  checks.push('三条不重复抽查、回忆草稿、三种自评写入、总结与历史');
+  await app.close();page=await launch();assert.equal(stored().entries.length,7);assert.equal(stored().entries.flatMap(e=>e.reviews).length,3);checks.push('关闭并重新启动后素材和复习记录保持');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(900,700));
+  await page.waitForFunction(()=>window.innerWidth<910);
+  assert.equal(await page.evaluate(()=>document.querySelector('main').scrollWidth<=document.querySelector('main').clientWidth),true);
+  await snap(page,'10-compact.png');checks.push('900×700 窗口无横向溢出');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,980));
+  await page.locator('[data-action="settings"]').click();await snap(page,'11-settings.png');await closeModal(page);
+  await page.locator('[data-page="library"]').click();await page.locator('#search').fill('测试引句');await page.locator('.memory-card').click();await page.locator('#delete-entry').click();await page.locator('#confirm-ok').click();await page.waitForFunction(()=>!document.querySelector('#modal').open);assert.equal(stored().entries.length,6);checks.push('删除前明确确认，删除后数据一致');
+  assert.deepEqual(errors,[]);
+  fs.writeFileSync(path.join(qa,'ui-report.json'),JSON.stringify({passed:true,checks,errors,dataDir},null,2));
+  await app.close();console.log(JSON.stringify({passed:true,checks,errors,qa},null,2));
+})().catch(async e=>{console.error(e);fs.writeFileSync(path.join(qa,'ui-report.json'),JSON.stringify({passed:false,error:e.stack,checks,errors,dataDir},null,2));if(app){try{await (await app.firstWindow()).screenshot({path:path.join(qa,'failure.png')});}catch{}await app.close();}process.exitCode=1;});

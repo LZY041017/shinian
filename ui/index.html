@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+  <title>拾念 · 让知识成为自己的思想</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="拾念首页"><span class="brand-icon">✳</span><span>拾念<small>SHINIAN</small></span></a>
+    <div class="sidebar-caption">留一束线索，重逢一个念头。</div>
+    <button class="primary new-memory" data-action="new"><span>＋</span> 写下一个念头 <kbd>N</kbd></button>
+    <div class="nav-label">我的书房 <span>LIBRARY</span></div>
+    <nav id="navigation"></nav>
+    <div class="nav-label tag-label">知识的经纬 <button class="icon-button" data-action="tags" title="管理标签" aria-label="管理标签">＋</button></div>
+    <nav id="tag-navigation"></nav>
+    <div class="sidebar-bottom">
+      <div class="small-orbit">✧</div><p>学而不思则罔，<br>思而不学则殆。</p><small>《论语 · 为政》</small>
+      <button class="settings-button" data-action="settings"><span>⚙</span> 数据与设置 <span class="local-dot"></span></button>
+    </div>
+  </aside>
+  <main>
+    <header class="topbar"><div id="breadcrumb">我的书房 <span>/</span> 今日拾念</div><div class="topbar-right"><span class="saved-status" id="saved-status">○ 本地保存</span><span class="top-date" id="top-date"></span></div></header>
+    <div id="view" class="view"></div>
+  </main>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body></html>

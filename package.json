@@ -1,0 +1,11 @@
+{
+  "name": "shinian",
+  "productName": "拾念",
+  "version": "1.0.0",
+  "description": "拾念 · 让知识成为自己的思想",
+  "author": "Shinian",
+  "license": "MIT",
+  "main": "main.cjs",
+  "scripts": {"start":"electron .","test":"node --test tests/core.test.cjs","test:ui":"node tests/ui.cjs"},
+  "devDependencies": {"electron":"44.3.0","@electron/packager":"^19.0.0","playwright-core":"^1.58.0","sharp":"^0.34.0"}
+}
