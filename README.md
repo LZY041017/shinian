@@ -48,3 +48,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/powershell/build/pac
 - `tests/`：核心及 Electron 实际交互测试。
 
 正式版数据位置为 `%APPDATA%/拾念/library/`（已通过打包应用读取实际路径确认）。正文按纯文本显示，图片保持原始编码；不执行用户 HTML。透视镜属于回忆辅助效果，不是访问控制。复习间隔为固定 1 / 3 / 7 天，每条最多保留 2000 条复习记录。当前没有 OCR、LaTeX 排版、云同步或账号系统。
+
+## 版本迭代
+
+详细版本变化见 [`VERSION_HISTORY.md`](VERSION_HISTORY.md)。
